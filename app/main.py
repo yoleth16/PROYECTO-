@@ -3,9 +3,10 @@ import pandas as pd
 from PIL import Image
 import os
 import plotly.express as px
+import uuid
+from io import StringIO
 
 # Cargar imagen de fondo
-
 def load_image():
     try:
         return Image.open("images/protein_background.jpg")
@@ -16,14 +17,29 @@ def load_image():
 image = load_image()
 print(f"Imagen cargada correctamente: {image is not None}")
 
-
+# Función para cargar datos del archivo CSV
 def load_data(file):
     try:
-        return pd.read_csv(file)
+        # Lee el contenido del archivo como string
+        content = StringIO(file.getvalue().decode("utf-8")).getvalue()
+        
+        # Escribe el contenido a un archivo temporal
+        temp_filepath = f"/tmp/{uuid.uuid4()}.csv"
+        with open(temp_filepath, "w") as f:
+            f.write(content)
+        
+        # Lee el archivo temporal usando pandas
+        data = pd.read_csv(temp_filepath)
+        
+        # Elimina el archivo temporal
+        os.remove(temp_filepath)
+        
+        return data
     except Exception as e:
         st.error(f"Error al cargar el archivo CSV: {str(e)}")
         return None
 
+# Función para analizar los datos de proteínas
 def analyze_protein_data(data):
     if data is None or data.empty:
         st.warning("No se pudo cargar los datos del archivo CSV.")
@@ -44,6 +60,7 @@ def analyze_protein_data(data):
     }
     return results
 
+# Función para crear indicadores
 def create_indicators(data):
     if data is None or data.empty:
         st.warning("No se pueden calcular indicadores debido a un error previo.")
@@ -60,12 +77,14 @@ def create_indicators(data):
     }
     return indicators
 
+# Función para mostrar la imagen
 def display_image(image):
     if image is not None:
         st.image(image, caption="Proteínas", use_column_width=True)
     else:
         st.error("No se pudo cargar la imagen de fondo.")
 
+# Función para mostrar los resultados
 def display_results(results, indicators):
     st.subheader("Análisis de Proteínas")
     
@@ -81,11 +100,14 @@ def display_results(results, indicators):
     st.write("# Indicadores")
     st.dataframe(pd.DataFrame([indicators]))
 
+# Título de la aplicación
 st.title("Análisis de Proteínas")
 st.markdown("<h3 style='text-align: center; color: white;'>Bienvenido al Análisis de Proteínas</h3>", unsafe_allow_html=True)
 
+# Mostrar imagen de fondo
 display_image(image)
 
+# Subir archivo CSV
 uploaded_file = st.file_uploader("Subir un archivo CSV", type="csv")
 
 if uploaded_file is not None:
@@ -103,3 +125,7 @@ if uploaded_file is not None:
     else:
         st.warning("No se pudo cargar el archivo CSV.")
 
+# Mostrar indicadores en una tabla si hay datos
+if data is not None:
+    st.write("# Indicadores")
+    st.dataframe(pd.DataFrame([indicators]))
