@@ -5,7 +5,7 @@ import os
 import plotly.express as px
 
 # Cargar imagen de fondo
-image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images/protein_background.jpg")
+image_path = os.path.join(os.path.dirname(os.path.abspath("images/protein_background.jpg"))), "images", "protein_background.jpg")
 image = Image.open(image_path)
 
 def load_data(file):
