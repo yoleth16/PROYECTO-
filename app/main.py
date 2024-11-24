@@ -7,15 +7,7 @@ import uuid
 from io import StringIO
 
 # Cargar imagen de fondo
-def load_image():
-    try:
-        return Image.open("images/protein_background.jpg")
-    except Exception as e:
-        print(f"Error al cargar la imagen: {str(e)}")
-        return None
-
-image = load_image()
-print(f"Imagen cargada correctamente: {image is not None}")
+image = Image.open("image/protein_background.jpg")
 
 # Función para cargar datos del archivo CSV
 def load_data(file):
