@@ -118,6 +118,18 @@ if uploaded_file is not None:
         st.warning("No se pudo cargar el archivo CSV.")
 
 # Mostrar indicadores en una tabla si hay datos
-if data is not None:
-    st.write("# Indicadores")
-    st.dataframe(pd.DataFrame([indicators]))
+if uploaded_file is not None:
+    data = load_data(uploaded_file)
+
+    if data is not None:
+        results = analyze_protein_data(data)
+        
+        if results is not None:
+            indicators = create_indicators(data)
+            
+            display_results(results, indicators)
+        else:
+            st.warning("No se pudieron obtener los resultados del análisis.")
+    else:
+        st.warning("No se pudo cargar el archivo CSV.")
+
