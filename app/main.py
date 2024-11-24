@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
 from PIL import Image
+import os
+import plotly.express as px
 
-image = Image.open("image/protein_background.jpg")
+# Cargar imagen de fondo
+image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images", "protein_background.jpg")
+image = Image.open(image_path)
 
 def load_data(file):
     try:
@@ -19,8 +20,8 @@ def analyze_protein_data(data):
         st.warning("No se pudo cargar los datos del archivo CSV.")
         return None
     
-    protein_types = data.columns.get_list()  # Obtenemos todas las columnas disponibles
-    protein_column = next((col for col in protein_types if 'type' in col.lower()), None)  
+    protein_types = data.columns.get_list()
+    protein_column = next((col for col in protein_types if 'type' in col.lower()), None)
     
     if protein_column is None:
         st.warning("No se encontró una columna con 'type' o similar.")
@@ -46,9 +47,15 @@ def create_indicators(data):
     indicators = {
         'avg_mw': round(avg_molecular_weight, 2) if avg_molecular_weight is not None else None,
         'min_mw': round(min_molecular_weight, 2) if min_molecular_weight is not None else None,
-        'max_mw': round(max_molecular_weight, 2) if max_molecular_weight is not None else None
+        'max_mmw': round(max_molecular_weight, 2) if max_molecular_weight is not None else None
     }
     return indicators
+
+def display_image(image):
+    if image is not None:
+        st.image(image, caption="Proteínas", use_column_width=True)
+    else:
+        st.error("No se pudo cargar la imagen de fondo.")
 
 def display_results(results, indicators):
     st.subheader("Análisis de Proteínas")
@@ -68,7 +75,7 @@ def display_results(results, indicators):
 st.title("Análisis de Proteínas")
 st.markdown("<h3 style='text-align: center; color: white;'>Bienvenido al Análisis de Proteínas</h3>", unsafe_allow_html=True)
 
-display_image(image, caption="Proteínas", use_column_width=True)
+display_image(image)
 
 uploaded_file = st.file_uploader("Subir un archivo CSV", type="csv")
 
@@ -86,3 +93,4 @@ if uploaded_file is not None:
             st.warning("No se pudieron obtener los resultados del análisis.")
     else:
         st.warning("No se pudo cargar el archivo CSV.")
+
