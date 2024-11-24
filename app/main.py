@@ -1,31 +1,18 @@
 import streamlit as st
 import pandas as pd
 from PIL import Image
-import os
 import plotly.express as px
-import uuid
-from io import StringIO
 
 # Cargar imagen de fondo
-image = Image.open("image/protein_background.jpg")
+try:
+    image = Image.open("image/protein_background.jpg")
+except FileNotFoundError:
+    image = None
 
-# Función para cargar datos del archivo CSV
+# Función para cargar datos desde el archivo CSV
 def load_data(file):
     try:
-        # Lee el contenido del archivo como string
-        content = StringIO(file.getvalue().decode("utf-8")).getvalue()
-        
-        # Escribe el contenido a un archivo temporal
-        temp_filepath = f"/tmp/{uuid.uuid4()}.csv"
-        with open(temp_filepath, "w") as f:
-            f.write(content)
-        
-        # Lee el archivo temporal usando pandas
-        data = pd.read_csv(temp_filepath)
-        
-        # Elimina el archivo temporal
-        os.remove(temp_filepath)
-        
+        data = pd.read_csv(file)
         return data
     except Exception as e:
         st.error(f"Error al cargar el archivo CSV: {str(e)}")
@@ -37,7 +24,7 @@ def analyze_protein_data(data):
         st.warning("No se pudo cargar los datos del archivo CSV.")
         return None
     
-    protein_types = data.columns.get_list()
+    protein_types = data.columns.tolist()
     protein_column = next((col for col in protein_types if 'type' in col.lower()), None)
     
     if protein_column is None:
@@ -45,91 +32,78 @@ def analyze_protein_data(data):
         return None
     
     protein_counts = data[protein_column].value_counts()
-    
-    results = {
+    return {
+        'protein_column': protein_column,
         'protein_types': protein_counts.index.tolist(),
         'counts': protein_counts.values.tolist()
     }
-    return results
 
-# Función para crear indicadores
+# Función para crear indicadores avanzados
 def create_indicators(data):
-    if data is None or data.empty:
-        st.warning("No se pueden calcular indicadores debido a un error previo.")
-        return None
-    
-    avg_molecular_weight = data['Molecular Weight'].mean() if 'Molecular Weight' in data.columns else None
-    min_molecular_weight = data['Molecular Weight'].min() if 'Molecular Weight' in data.columns else None
-    max_molecular_weight = data['Molecular Weight'].max() if 'Molecular Weight' in data.columns else None
-    
-    indicators = {
-        'avg_mw': round(avg_molecular_weight, 2) if avg_molecular_weight is not None else None,
-        'min_mw': round(min_molecular_weight, 2) if min_molecular_weight is not None else None,
-        'max_mmw': round(max_molecular_weight, 2) if max_molecular_weight is not None else None
-    }
+    indicators = {}
+    if 'Molecular Weight' in data.columns:
+        indicators.update({
+            'Peso Molecular Promedio': round(data['Molecular Weight'].mean(), 2),
+            'Peso Molecular Mínimo': round(data['Molecular Weight'].min(), 2),
+            'Peso Molecular Máximo': round(data['Molecular Weight'].max(), 2)
+        })
+    if 'Protein Concentration' in data.columns:
+        indicators.update({
+            'Concentración Promedio': round(data['Protein Concentration'].mean(), 2),
+            'Concentración Máxima': round(data['Protein Concentration'].max(), 2),
+        })
     return indicators
 
-# Función para mostrar la imagen
-def display_image(image):
-    if image is not None:
-        st.image(image, caption="Proteínas", use_column_width=True)
-    else:
-        st.error("No se pudo cargar la imagen de fondo.")
-
-# Función para mostrar los resultados
-def display_results(results, indicators):
+# Función para mostrar gráficos de análisis
+def display_results(data, results, indicators):
     st.subheader("Análisis de Proteínas")
     
-    if results is None:
-        st.warning("No se pudieron obtener los resultados del análisis.")
-        return
+    if results:
+        # Gráfico de barras para tipos de proteínas
+        fig1 = px.bar(
+            x=results['protein_types'],
+            y=results['counts'],
+            labels={'x': 'Tipo de Proteína', 'y': 'Cantidad'},
+            title=f"Distribución de {results['protein_column']}",
+            color=results['counts'],
+            color_continuous_scale='Viridis'
+        )
+        st.plotly_chart(fig1)
     
-    # Mostrar gráfico de barras de tipos de proteínas
-    fig1 = px.bar(results['protein_types'], results['counts'])
-    st.plotly_chart(fig1)
+    if 'Molecular Weight' in data.columns:
+        # Histograma del peso molecular
+        fig2 = px.histogram(
+            data, 
+            x='Molecular Weight',
+            nbins=20,
+            title='Distribución del Peso Molecular',
+            labels={'Molecular Weight': 'Peso Molecular'},
+            color_discrete_sequence=['#636EFA']
+        )
+        st.plotly_chart(fig2)
     
-    # Mostrar indicadores en una tabla
-    st.write("# Indicadores")
-    st.dataframe(pd.DataFrame([indicators]))
+    if indicators:
+        st.write("### Indicadores Clave")
+        st.table(indicators)
 
-# Título de la aplicación
-st.title("Análisis de Proteínas")
-st.markdown("<h3 style='text-align: center; color: white;'>Bienvenido al Análisis de Proteínas</h3>", unsafe_allow_html=True)
+# Título y descripción de la app
+st.title("Análisis Interactivo de Proteínas")
+st.markdown("""
+Esta aplicación permite analizar datos de proteínas desde un archivo CSV. 
+Sube tu archivo y descubre indicadores clave y visualizaciones interactivas.
+""")
 
 # Mostrar imagen de fondo
-display_image(image)
+if image:
+    st.image(image, caption="Análisis de Proteínas", use_column_width=True)
 
-# Subir archivo CSV
+# Carga del archivo CSV
 uploaded_file = st.file_uploader("Subir un archivo CSV", type="csv")
-
-if uploaded_file is not None:
+if uploaded_file:
     data = load_data(uploaded_file)
-
     if data is not None:
         results = analyze_protein_data(data)
-        
-        if results is not None:
-            indicators = create_indicators(data)
-            
-            display_results(results, indicators)
-        else:
-            st.warning("No se pudieron obtener los resultados del análisis.")
+        indicators = create_indicators(data)
+        display_results(data, results, indicators)
     else:
-        st.warning("No se pudo cargar el archivo CSV.")
-
-# Mostrar indicadores en una tabla si hay datos
-if uploaded_file is not None:
-    data = load_data(uploaded_file)
-
-    if data is not None:
-        results = analyze_protein_data(data)
-        
-        if results is not None:
-            indicators = create_indicators(data)
-            
-            display_results(results, indicators)
-        else:
-            st.warning("No se pudieron obtener los resultados del análisis.")
-    else:
-        st.warning("No se pudo cargar el archivo CSV.")
-
+        st.warning("No se pudo cargar el archivo CSV correctamente.")
