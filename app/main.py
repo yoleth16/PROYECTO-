@@ -5,7 +5,8 @@ import seaborn as sns
 import plotly.express as px
 from PIL import Image
 
-image = Image.open("protein_background.jpg")
+image_path = os.path.join(os.path.dirname(__file__), "image", "protein_background.jpg")
+image = Image.open(image_path)
 
 def load_data(file):
     return pd.read_csv(file)
