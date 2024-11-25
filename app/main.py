@@ -9,56 +9,72 @@ import io
 import uuid
 import os
 
-# Estilos y temas de seaborn
-sns.set_style("whitegrid")
-sns.set_palette("pastel")
+# Función para cargar datos del archivo FASTA
+def load_fasta(file):
+    try:
+        # Lee el contenido del archivo como string
+        content = file.getvalue().decode("utf-8")
+        
+        # Escribe el contenido a un archivo temporal
+        temp_filepath = f"/tmp/{uuid.uuid4()}.fasta"
+        with open(temp_filepath, "w") as f:
+            f.write(content)
+        
+        # Lee el archivo temporal usando Bio.SeqIO
+        sequences = list(SeqIO.parse(temp_filepath, "fasta"))
+        
+        # Elimina el archivo temporal
+        os.remove(temp_filepath)
+        
+        return sequences
+    except Exception as e:
+        st.error(f"Error al cargar el archivo FASTA: {str(e)}")
+        return None
 
-# Funciones para crear gráficos con mejoras visuales
+# Función para calcular indicadores de secuencia
+def calculate_sequence_indicators(sequence):
+    if sequence is None or len(sequence) == 0:
+        return None
+    
+    length = len(sequence.seq)
+    gc_content = (sequence.seq.count('G') + sequence.seq.count('C')) / length * 100
+    at_content = (sequence.seq.count('A') + sequence.seq.count('T')) / length * 100
+    gc_ratio = gc_content / 100
+    at_ratio = at_content / 100
+    
+    return {
+        'length': length,
+        'gc_content': gc_content,
+        'at_content': at_content,
+        'gc_ratio': gc_ratio,
+        'at_ratio': at_ratio
+    }
+
+# Función para crear gráfico de contenido GC y AT
 def plot_gc_at_content(indicators):
     if indicators is None:
         return
     
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(8, 6))
     sns.lineplot(x=['GC', 'AT'], y=[indicators['gc_ratio'] * 100, indicators['at_ratio'] * 100], ax=ax)
     
-    ax.set_title('Contenido de GC y AT', fontsize=18)
-    ax.set_xlabel('Tipo de nucleótido', fontsize=14)
-    ax.set_ylabel('Porcentaje (%)', fontsize=14)
-    
-    ax.tick_params(axis='x', labelsize=12)
-    ax.tick_params(axis='y', labelsize=12)
-    
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_linewidth(1.5)
-    ax.spines['left'].set_linewidth(1.5)
-    
-    ax.yaxis.grid(True, linestyle='--', alpha=0.7)
+    ax.set_title('Contenido de GC y AT')
+    ax.set_xlabel('Tipo de nucleótido')
+    ax.set_ylabel('Porcentaje')
     
     st.pyplot(fig)
 
+# Función para crear gráfico de longitud de secuencia
 def plot_sequence_length(indicators):
     if indicators is None:
         return
     
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.histplot(data=[indicators['length']], kde=True, ax=ax, bins=30)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.histplot(data=[indicators['length']], kde=True, ax=ax)
     
-    ax.set_title('Distribución de Longitudes de Secuencia', fontsize=18)
-    ax.set_xlabel('Longitud', fontsize=14)
-    ax.set_ylabel('Frecuencia', fontsize=14)
-    
-    ax.tick_params(axis='x', labelsize=12)
-    ax.tick_params(axis='y', labelsize=12)
-    
-    ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
-    
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_linewidth(1.5)
-    ax.spines['left'].set_linewidth(1.5)
-    
-    ax.yaxis.grid(True, linestyle='--', alpha=0.7)
+    ax.set_title('Longitud de la secuencia')
+    ax.set_xlabel('Longitud')
+    ax.set_ylabel('Frecuencia')
     
     st.pyplot(fig)
 
@@ -81,42 +97,25 @@ def display_results(sequences, indicators):
     df = pd.DataFrame(sequence_indicators)
     
     # Mostrar datos en una tabla
-    st.dataframe(df.style.set_properties(**{'text-align': 'center'}))
+    st.dataframe(df)
     
     # Permitir al usuario elegir qué gráficos ver
-    graph_options = ['Gráfico de contenido GC y AT', 'Gráfico de distribución de longitudes']
+    graph_options = ['Gráfico de contenido GC y AT', 'Gráfico de longitud de secuencia']
     selected_graphs = st.multiselect("Elegir gráficos para visualizar", graph_options)
     
     if 'Gráfico de contenido GC y AT' in selected_graphs:
         plot_gc_at_content(df.iloc[0])
     
-    if 'Gráfico de distribución de longitudes' in selected_graphs:
+    if 'Gráfico de longitud de secuencia' in selected_graphs:
         plot_sequence_length(df.iloc[0])
 
-# Función para calcular indicadores de secuencia
-def calculate_sequence_indicators(sequence):
-    if sequence is None or len(sequence) == 0:
-        return None
-    
-    length = len(sequence.seq)
-    gc_content = (sequence.seq.count('G') + sequence.seq.count('C')) / length * 100
-    at_content = (sequence.seq.count('A') + sequence.seq.count('T')) / length * 100
-    gc_ratio = gc_content / 100
-    at_ratio = at_content / 100
-    
-    return {
-        'length': length,
-        'gc_content': gc_content,
-        'at_content': at_content,
-        'gc_ratio': gc_ratio,
-        'at_ratio': at_ratio
-    }
-
 # Título de la aplicación
-st.title("Análisis de Secuencias FASTA")
+st.title("🔬 Análisis de Secuencias FASTA")
+st.markdown("""Este dashboard permite analizar y visualizar datos relacionados con secuencias biológicas.
+Utiliza los controles para interactuar con los datos.""")
 
 # Subir archivo FASTA
-uploaded_file = st.file_uploader("Subir un archivo FASTA", type="fasta")
+uploaded_file = st.file_uploader("📂 Subir un archivo FASTA", type="fasta")
 
 if uploaded_file is not None:
     sequences = load_fasta(uploaded_file)
@@ -131,26 +130,7 @@ if uploaded_file is not None:
 # Mostrar indicadores en una tabla si hay datos
 if indicators is not None:
     st.write("# Indicadores")
-    st.dataframe(pd.DataFrame([indicators]).style.set_properties(**{'text-align': 'center'}))
+    st.dataframe(pd.DataFrame([indicators]))
 
-# Función para cargar datos del archivo FASTA
-def load_fasta(file):
-    try:
-        # Lee el contenido del archivo como string
-        content = file.getvalue().decode("utf-8")
-        
-        # Escribe el contenido a un archivo temporal
-        temp_filepath = f"/tmp/{uuid.uuid4()}.fasta"
-        with open(temp_filepath, "w") as f:
-            f.write(content)
-        
-        # Lee el archivo temporal usando Bio.SeqIO
-        sequences = list(SeqIO.parse(temp_filepath, "fasta"))
-        
-        # Elimina el archivo temporal
-        os.remove(temp_filepath)
-        
-        return sequences
-    except Exception as e:
-        st.error(f"Error al cargar el archivo FASTA: {str(e)}")
-        return None
+st.sidebar.markdown("---")
+st.sidebar.write("💻 Desarrollado por [Yoleth Barrios y Lucero Ramos]")
