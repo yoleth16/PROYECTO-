@@ -1,136 +1,151 @@
 import streamlit as st
 import pandas as pd
-from Bio import SeqIO
-import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
-import base64
-import io
-import uuid
-import os
+import plotly.express as px
+from io import StringIO
 
-# Función para cargar datos del archivo FASTA
-def load_fasta(file):
-    try:
-        # Lee el contenido del archivo como string
-        content = file.getvalue().decode("utf-8")
-        
-        # Escribe el contenido a un archivo temporal
-        temp_filepath = f"/tmp/{uuid.uuid4()}.fasta"
-        with open(temp_filepath, "w") as f:
-            f.write(content)
-        
-        # Lee el archivo temporal usando Bio.SeqIO
-        sequences = list(SeqIO.parse(temp_filepath, "fasta"))
-        
-        # Elimina el archivo temporal
-        os.remove(temp_filepath)
-        
-        return sequences
-    except Exception as e:
-        st.error(f"Error al cargar el archivo FASTA: {str(e)}")
-        return None
+# Configuración de la página
+st.set_page_config(
+    page_title="Análisis de Secuencias Biológicas",
+    page_icon="🔬",
+    layout="wide"
+)
 
-# Función para calcular indicadores de secuencia
-def calculate_sequence_indicators(sequence):
-    if sequence is None or len(sequence) == 0:
-        return None
-    
-    length = len(sequence.seq)
-    gc_content = (sequence.seq.count('G') + sequence.seq.count('C')) / length * 100
-    at_content = (sequence.seq.count('A') + sequence.seq.count('T')) / length * 100
-    gc_ratio = gc_content / 100
-    at_ratio = at_content / 100
-    
-    return {
-        'length': length,
-        'gc_content': gc_content,
-        'at_content': at_content,
-        'gc_ratio': gc_ratio,
-        'at_ratio': at_ratio
-    }
+# Título principal
+st.title("🔬 Análisis de Secuencias Biológicas")
+st.markdown("""
+**Bienvenido al Dashboard de Análisis de Secuencias Biológicas.**  
+Sube un archivo FASTA o CSV para explorar herramientas avanzadas y visualizaciones interactivas.
+""")
 
-# Función para crear gráfico de contenido GC y AT
-def plot_gc_at_content(indicators):
-    if indicators is None:
-        return
-    
-    fig, ax = plt.subplots(figsize=(8, 6))
-    sns.lineplot(x=['GC', 'AT'], y=[indicators['gc_ratio'] * 100, indicators['at_ratio'] * 100], ax=ax)
-    
-    ax.set_title('Contenido de GC y AT')
-    ax.set_xlabel('Tipo de nucleótido')
-    ax.set_ylabel('Porcentaje')
-    
-    st.pyplot(fig)
+# Barra lateral
+st.sidebar.title("📂 Subir y Configurar Archivo")
+uploaded_file = st.sidebar.file_uploader(
+    "Sube tu archivo FASTA o CSV",
+    type=["fasta", "csv"],
+    help="Puedes cargar archivos de secuencias biológicas (FASTA) o datos tabulares (CSV)."
+)
 
-# Función para crear gráfico de longitud de secuencia
-def plot_sequence_length(indicators):
-    if indicators is None:
-        return
-    
-    fig, ax = plt.subplots(figsize=(8, 6))
-    sns.histplot(data=[indicators['length']], kde=True, ax=ax)
-    
-    ax.set_title('Longitud de la secuencia')
-    ax.set_xlabel('Longitud')
-    ax.set_ylabel('Frecuencia')
-    
-    st.pyplot(fig)
+# Progreso y estado
+progress_bar = st.sidebar.progress(0)
+status_text = st.sidebar.empty()
 
-# Función para mostrar los resultados
-def display_results(sequences, indicators):
-    st.subheader("Análisis de Secuencias")
-    
-    if sequences is None:
-        st.warning("No se pudieron cargar las secuencias del archivo FASTA.")
-        return
-    
-    # Mostrar información general de las secuencias
-    st.write("# Información General de las Secuencias")
-    st.write(f"Total de secuencias: {len(sequences)}")
-    
-    # Calcular indicadores para cada secuencia
-    sequence_indicators = [calculate_sequence_indicators(seq) for seq in sequences]
-    
-    # Crear DataFrame con los indicadores
-    df = pd.DataFrame(sequence_indicators)
-    
-    # Mostrar datos en una tabla
-    st.dataframe(df)
-    
-    # Permitir al usuario elegir qué gráficos ver
-    graph_options = ['Gráfico de contenido GC y AT', 'Gráfico de longitud de secuencia']
-    selected_graphs = st.multiselect("Elegir gráficos para visualizar", graph_options)
-    
-    if 'Gráfico de contenido GC y AT' in selected_graphs:
-        plot_gc_at_content(df.iloc[0])
-    
-    if 'Gráfico de longitud de secuencia' in selected_graphs:
-        plot_sequence_length(df.iloc[0])
+# Procesar archivo cargado
+if uploaded_file:
+    # Actualizar barra de progreso
+    progress_bar.progress(20)
 
-# Título de la aplicación
-st.title("🔬 Análisis de Secuencias FASTA")
-st.markdown("""Este dashboard permite analizar y visualizar datos relacionados con secuencias biológicas.
-Utiliza los controles para interactuar con los datos.""")
+    if uploaded_file.name.endswith(".fasta"):
+        status_text.text("Procesando archivo FASTA...")
+        fasta_content = uploaded_file.getvalue().decode("utf-8").splitlines()
 
-# Subir archivo FASTA
-uploaded_file = st.file_uploader("📂 Subir un archivo FASTA", type="fasta")
+        # Procesar secuencias FASTA
+        sequences = {}
+        current_header = None
+        for line in fasta_content:
+            line = line.strip()
+            if line.startswith(">"):
+                current_header = line[1:]
+                sequences[current_header] = ""
+            elif current_header:
+                sequences[current_header] += line
 
-if uploaded_file is not None:
-    sequences = load_fasta(uploaded_file)
+        progress_bar.progress(60)
+        st.sidebar.success("Archivo FASTA cargado exitosamente")
+        st.write(f"### Número de secuencias cargadas: {len(sequences)}")
+        st.json({header: seq[:50] + "..." for header, seq in list(sequences.items())[:5]})
+        progress_bar.progress(100)
 
-    if sequences is not None:
-        indicators = calculate_sequence_indicators(sequences[0])
-        
-        display_results(sequences, indicators)
-    else:
-        st.warning("No se pudo cargar el archivo FASTA.")
+    elif uploaded_file.name.endswith(".csv"):
+        status_text.text("Procesando archivo CSV...")
+        try:
+            data = pd.read_csv(uploaded_file)
+            st.sidebar.success("Archivo CSV cargado exitosamente")
+            st.write("### Vista previa de los datos")
+            st.dataframe(data.head())
+            progress_bar.progress(100)
+        except Exception as e:
+            st.error(f"Error al cargar el archivo CSV: {str(e)}")
 
-# Mostrar indicadores en una tabla si hay datos
-if indicators is not None:
-    st.write("# Indicadores")
-    st.dataframe(pd.DataFrame([indicators]))
+# Indicadores clave
+st.header("📊 Indicadores Clave de Análisis")
+if uploaded_file:
+    col1, col2, col3 = st.columns(3)
+    if uploaded_file.name.endswith(".fasta"):
+        sequence_lengths = [len(seq) for seq in sequences.values()]
+        with col1:
+            st.metric(label="🔗 Secuencias Cargadas", value=len(sequences))
+        with col2:
+            st.metric(label="📏 Longitud Promedio", value=f"{np.mean(sequence_lengths):.2f}")
+        with col3:
+            st.metric(label="📈 Longitud Máxima", value=max(sequence_lengths))
+    elif uploaded_file.name.endswith(".csv"):
+        with col1:
+            st.metric(label="🔢 Columnas Numéricas", value=len(data.select_dtypes(include='number').columns))
+        with col2:
+            st.metric(label="🔍 Filas Totales", value=len(data))
+        with col3:
+            st.metric(label="📊 Columnas Totales", value=len(data.columns))
+
+# Visualizaciones
+st.header("📈 Visualizaciones Interactivas")
+
+if uploaded_file:
+    # Pestañas para diferentes análisis
+    tab1, tab2, tab3 = st.tabs(["🔍 Estadísticas", "📊 Gráficos", "🧬 Herramientas Interactivas"])
+
+    with tab1:
+        st.subheader("🔍 Estadísticas Descriptivas")
+        if uploaded_file.name.endswith(".csv"):
+            st.write("**Estadísticas del archivo CSV:**")
+            st.dataframe(data.describe())
+        elif uploaded_file.name.endswith(".fasta"):
+            st.write("**Estadísticas de secuencias FASTA:**")
+            sequence_lengths = [len(seq) for seq in sequences.values()]
+            st.write(f"- Longitud mínima: {min(sequence_lengths)}")
+            st.write(f"- Longitud promedio: {np.mean(sequence_lengths):.2f}")
+            st.write(f"- Longitud máxima: {max(sequence_lengths)}")
+
+    with tab2:
+        st.subheader("📊 Gráficos Interactivos")
+        if uploaded_file.name.endswith(".csv"):
+            numeric_columns = data.select_dtypes(include="number").columns
+            if numeric_columns.any():
+                selected_column = st.selectbox(
+                    "Selecciona una columna numérica para visualizar:",
+                    numeric_columns
+                )
+                fig = px.histogram(
+                    data,
+                    x=selected_column,
+                    title=f"Distribución de {selected_column}",
+                    color_discrete_sequence=["#FFA07A"]
+                )
+                st.plotly_chart(fig)
+            else:
+                st.warning("No hay columnas numéricas disponibles.")
+        elif uploaded_file.name.endswith(".fasta"):
+            fig = px.histogram(
+                x=sequence_lengths,
+                nbins=20,
+                labels={"x": "Longitud de Secuencia", "y": "Frecuencia"},
+                title="Distribución de Longitudes de Secuencia",
+                color_discrete_sequence=["#66CDAA"]
+            )
+            st.plotly_chart(fig)
+
+    with tab3:
+        st.subheader("🧬 Herramientas Interactivas")
+        if uploaded_file.name.endswith(".fasta"):
+            selected_tool = st.selectbox(
+                "Selecciona una herramienta para analizar tus secuencias:",
+                ["Alineación", "Predicción de Estructuras", "Búsqueda de Motivos"]
+            )
+            if selected_tool == "Búsqueda de Motivos":
+                motivos = ["ATG", "TATA", "CCGG"]
+                frecuencias = {motivo: sum(seq.count(motivo) for seq in sequences.values()) for motivo in motivos}
+                st.write("**Resultados de búsqueda:**")
+                st.table(pd.DataFrame(frecuencias.items(), columns=["Motivo", "Frecuencia"]))
 
 st.sidebar.markdown("---")
 st.sidebar.write("💻 Desarrollado por [Yoleth Barrios y Lucero Ramos]")
