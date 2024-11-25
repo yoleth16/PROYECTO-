@@ -6,3 +6,5 @@ plotly
 Pillow
 numpy
 uuid
+biopython
+
