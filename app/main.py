@@ -4,21 +4,18 @@ import numpy as np
 import plotly.express as px
 from io import StringIO
 
-# Configuración de la página
 st.set_page_config(
     page_title="Análisis de Secuencias Biológicas",
     page_icon="🔬",
     layout="wide"
 )
 
-# Título principal
 st.title("🔬 Análisis de Secuencias Biológicas")
 st.markdown("""
 **Bienvenido al Dashboard de Análisis de Secuencias Biológicas.**  
 Sube un archivo FASTA o CSV para explorar herramientas avanzadas y visualizaciones interactivas.
 """)
 
-# Barra lateral
 st.sidebar.title("📂 Subir y Configurar Archivo")
 uploaded_file = st.sidebar.file_uploader(
     "Sube tu archivo FASTA o CSV",
@@ -26,13 +23,12 @@ uploaded_file = st.sidebar.file_uploader(
     help="Puedes cargar archivos de secuencias biológicas (FASTA) o datos tabulares (CSV)."
 )
 
-# Progreso y estado
 progress_bar = st.sidebar.progress(0)
 status_text = st.sidebar.empty()
 
-# Procesar archivo cargado
+
 if uploaded_file:
-    # Actualizar barra de progreso
+    
     progress_bar.progress(20)
 
     if uploaded_file.name.endswith(".fasta"):
